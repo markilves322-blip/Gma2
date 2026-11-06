@@ -268,6 +268,89 @@ test('files never overwrite and command injection is rejected', function()
     assert(h.a.directory('C:\\ProgramData\\MA Lighting\\importexport\\') == 'C:/ProgramData/MA Lighting/importexport')
     rejects(function() h.a.probe('Layout 1; Delete Layout 2') end)
 end)
+test('venue placements preserve pixel distances and move centroid', function()
+    local m = model()
+    local p = core.plan(m, {placements = {{fix_id=101, x=-16, y=12, rotation_delta=90}}})
+    local after = core.read(p.output).by_fixture[101]
+    near(after['1'].x,-16); near(after['1'].y,12)
+    near(after['0'].x,-15.5); near(after['0'].y,11.133975)
+    near(after['2'].x,-16.5); near(after['2'].y,12.866025)
+    assert(#p.changes == 3)
+    for key, before in pairs(m.by_fixture[201]) do
+        near(core.read(p.output).by_fixture[201][key].x,before.x)
+    end
+end)
+test('venue subset placement preserves unselected modules', function()
+    local p = core.plan(model(), {placements={{fix_id=101,indices={'0','2'},x=0,y=0}}})
+    local after = core.read(p.output).by_fixture[101]
+    near(after['1'].x,10); near(after['1'].y,10)
+    near((after['0'].x+after['2'].x)/2,0)
+end)
+test('venue placement rejects ambiguity and missing fixtures', function()
+    rejects(function() core.plan(model(), {placements={{fix_id=999,x=0,y=0}}}) end, 'missing')
+    rejects(function() core.plan(model(), {placements={{fix_id=101,x=0,y=0},{fix_id=101,x=1,y=1}}}) end, 'Repeated')
+    rejects(function() core.plan(model(), {placements={}, jobs={}}) end, 'OR')
+end)
+test('normalized positions TSV is data only, supports BOM/CRLF', function()
+    local c = core.parse_positions('\239\187\191fix_id\tx\ty\trotation_delta\r\n101\t-16\t12\t0\r\n')
+    near(c.placements[1].x,-16)
+    assert(#core.plan(model(),c).changes==3)
+    for _, t in ipairs({'fix_id,x,y,rotation_delta\n101,1,2,0',
+        'fix_id\tx\ty\trotation_delta\n101\t1\t2\t0\textra',
+        'fix_id\tx\ty\trotation_delta\n101\tNaN\t2\t0',
+        'fix_id\tx\ty\trotation_delta\n101;Delete\t1\t2\t0'}) do
+        rejects(function() core.parse_positions(t) end)
+    end
+end)
+test('scene preview and create use the same validated positions', function()
+    for _, action in ipairs({'preview','create'}) do
+        local h = harness({'scene','1','/test','scene_front.tsv',action,'99','CREATE 99'})
+        h.files['/test/scene_front.tsv'] = 'fix_id\tx\ty\trotation_delta\n101\t-16\t12\t0\n'
+        ui.run(h.g,h.fs)
+        assert(import_count(h) == (action=='create' and 1 or 0))
+        assert(h.layouts[1] == fixture)
+        if action=='create' then near(core.read(h.layouts[99]).by_fixture[101]['1'].x,-16) end
+    end
+end)
+test('export waits for complete XML and reuses parsed model', function()
+    local h = harness({})
+    local sleeps=0
+    local saved
+    h.g.cmd=function(command)
+        saved=assert(command:match('"([%w_]+)"'))
+        h.files['/test/'..saved..'.xml']='<MA'
+    end
+    h.g.sleep=function()
+        sleeps=sleeps+1
+        h.files['/test/'..saved..'.xml']=fixture
+    end
+    local text, _, m = h.a.export(1,'/test')
+    assert(sleeps==1 and text==fixture and #m.elements==17)
+end)
+test('permanently truncated export times out without show mutation', function()
+    local h = harness({})
+    local sleeps=0
+    h.g.cmd=function(command)
+        local name=assert(command:match('"([%w_]+)"'))
+        h.files['/test/'..name..'.xml']='<MA'
+    end
+    h.g.sleep=function() sleeps=sleeps+1 end
+    rejects(function() h.a.export(1,'/test') end,'incomplete')
+    assert(sleeps==50 and h.layouts[1]==fixture and not h.layouts[99])
+end)
+test('compiled affine transform matches independent sequential rotations', function()
+    math.randomseed(20261107)
+    for _=1,200 do
+        local s={x=3,y=5,angle=math.random()*720-360}
+        local t={x=-3,y=4,angle=math.random()*720-360,mirror=({'none','flip_x','flip_y'})[math.random(3)]}
+        local px,py=math.random()*10,math.random()*10
+        local u,v=core.rotate(px-s.x,py-s.y,-s.angle)
+        if t.mirror=='flip_x' then u=-u elseif t.mirror=='flip_y' then v=-v end
+        u,v=core.rotate(u,v,t.angle)
+        local x,y=core.compile_transform(s,t)(px,py)
+        near(x,u+t.x,1e-10);near(y,v+t.y,1e-10)
+    end
+end)
 test('bundled plugin loads without global require/package and defaults to probe', function()
     local h = harness({'probe','1',''})
     local env = {gma = h.g}

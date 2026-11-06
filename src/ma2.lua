@@ -65,14 +65,18 @@ function M.new(gma_api, filesystem)
         local path = dir .. '/' .. name .. '.xml'
         -- No /overwrite or /noconfirm, and no drive/destination changes.
         g.cmd(string.format('Export Layout %d "%s" /path="%s"', layout, name, dir))
-        for _ = 1, 20 do
-            if self.exists(path) then break end
+        local last_error = 'Export file not created'
+        for _ = 1, 50 do
+            local ok, text, model = pcall(function()
+                local data = self.read(path)
+                return data, core.read(data)
+            end)
+            if ok then return text, path, model end
+            last_error = tostring(text)
             if type(g.sleep) ~= 'function' then break end
             g.sleep(0.1)
         end
-        local text = self.read(path)
-        core.read(text) -- Never accept an unrecognised export format.
-        return text, path
+        error('Export incomplete or unsupported: ' .. last_error, 0)
     end
     function self.probe(address)
         check(type(address) == 'string' and (address:match('^Layout %d+$') or address:match('^Fixture %d+$')), 'Unsupported probe address')
@@ -145,7 +149,7 @@ function M.new(gma_api, filesystem)
             g.sleep(0.1)
         end
         check(handle(target_layout), 'Import not verified; inspect MA2 feedback. No automatic retry/delete performed')
-        local actual = core.read(self.export(target_layout, dir))
+        local _, _, actual = self.export(target_layout, dir)
         for _, change in ipairs(plan.changes) do
             local entries = actual.by_fixture[change.fix_id]
             local e = entries and entries[change.index]

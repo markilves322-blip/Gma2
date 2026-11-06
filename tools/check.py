@@ -29,6 +29,7 @@ for path in sorted(ROOT.rglob('*.lua')):
     subprocess.run([lua, '-e', 'assert(loadfile(os.getenv("LA_CHECK_FILE")))'],
                    env=dict(os.environ, LA_CHECK_FILE=str(path)), check=True)
 subprocess.run([lua, 'tests/run.lua'], check=True)
+subprocess.run(['python3', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'], check=True)
 with tempfile.TemporaryDirectory(prefix='layout-assistant-') as tmp:
     output, svg = Path(tmp) / 'result.xml', Path(tmp) / 'preview.svg'
     command = [lua, 'tools/offline.lua', 'examples/synthetic-layout.xml', 'examples/recipe.lua', str(output)]
@@ -40,4 +41,12 @@ with tempfile.TemporaryDirectory(prefix='layout-assistant-') as tmp:
     ET.parse(output)
     subprocess.run(['python3', 'tools/preview.py', 'examples/synthetic-layout.xml', str(output), str(svg)], check=True)
     ET.parse(svg)
+    for view in ('front', 'top'):
+        positions = Path(tmp) / f'scene_{view}.tsv'
+        command = ['python3','tools/capture_csv.py','examples/scene-synthetic.csv',f'examples/venue-{view}.json',str(positions)]
+        subprocess.run(command,check=True)
+        assert subprocess.run(command,capture_output=True).returncode != 0
+        result = Path(tmp)/f'scene_{view}.xml'
+        subprocess.run([lua,'tools/offline.lua','examples/synthetic-layout.xml',str(positions),str(result)],check=True)
+        ET.parse(result)
 print('Release checks passed: Lua 5.3, bundle, MA2 descriptor, offline XML/SVG and overwrite refusal.')

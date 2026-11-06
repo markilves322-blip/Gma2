@@ -13,7 +13,10 @@ end
 assert(arg[1] and arg[2] and arg[3] and not arg[4], 'Usage: lua tools/offline.lua input.xml recipe.lua NEW-output.xml')
 assert(arg[1] ~= arg[3] and arg[2] ~= arg[3], 'Output must be a new file')
 -- A recipe is executable Lua authored by the operator: never run an untrusted recipe.
-local plan = core.plan(core.read(read(arg[1])), assert(loadfile(arg[2]))())
+local recipe
+if arg[2]:match('%.tsv$') then recipe = core.parse_positions(read(arg[2]))
+else recipe = assert(loadfile(arg[2]))() end
+local plan = core.plan(core.read(read(arg[1])), recipe)
 local report = core.report(plan)
 -- Preflight BOTH paths before writing either file.
 for _, path in ipairs({arg[3], arg[3] .. '.txt'}) do

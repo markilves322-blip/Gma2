@@ -1,0 +1,11 @@
+{
+  "description": "SYNTHETIC example assumes Y depth. Confirm audience direction for your Capture project.",
+  "columns": {"id": "Channel", "x": "X", "y": "Y", "z": "Z"},
+  "horizontal_axis": "x",
+  "vertical_axis": "y",
+  "horizontal_sign": 1,
+  "vertical_sign": -1,
+  "scale": 2,
+  "origin": {"x": 0, "y": 0, "z": 0},
+  "delimiter": ","
+}

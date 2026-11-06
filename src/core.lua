@@ -21,13 +21,22 @@ function M.rotate(x, y, degrees)
     local r = M.number(degrees, 'angle') * math.pi / 180
     return x * math.cos(r) - y * math.sin(r), x * math.sin(r) + y * math.cos(r)
 end
-function M.transform(x, y, source, target)
-    local u, v = M.rotate(x - source.x, y - source.y, -source.angle)
+function M.compile_transform(source, target)
     local mirror = target.mirror or 'none'
     check(mirror == 'none' or mirror == 'flip_x' or mirror == 'flip_y', 'Unknown mirror mode')
-    if mirror == 'flip_x' then u = -u elseif mirror == 'flip_y' then v = -v end
-    u, v = M.rotate(u, v, target.angle)
-    return target.x + u, target.y + v
+    local sr = -M.number(source.angle, 'source angle') * math.pi / 180
+    local tr = M.number(target.angle, 'target angle') * math.pi / 180
+    local cs, ss, ct, st = math.cos(sr), math.sin(sr), math.cos(tr), math.sin(tr)
+    local mx, my = mirror == 'flip_x' and -1 or 1, mirror == 'flip_y' and -1 or 1
+    local a, b = ct*mx*cs - st*my*ss, -ct*mx*ss - st*my*cs
+    local c, d = st*mx*cs + ct*my*ss, -st*mx*ss + ct*my*cs
+    return function(x, y)
+        local u, v = x - source.x, y - source.y
+        return target.x + a*u + b*v, target.y + c*u + d*v
+    end
+end
+function M.transform(x, y, source, target)
+    return M.compile_transform(source, target)(x, y)
 end
 
 function M.read(text)
@@ -99,8 +108,67 @@ local function frame(elements, spec)
         angle = M.number(spec.angle, 'angle'), mirror = spec.mirror or 'none'}
 end
 
+local function add_change(plan, before, source_index, x, y)
+    x, y = M.number(x, 'result x'), M.number(y, 'result y')
+    plan.changes[#plan.changes + 1] = {fix_id = before.fix_id, index = before.index,
+        source_index = source_index, before_x = before.x, before_y = before.y, x = x, y = y}
+    for _, pair in ipairs({{'center_x', x}, {'center_y', y}}) do
+        local attr = before.node.attrs[pair[1]]
+        local value = math.abs(pair[2]) < 0.0000005 and 0 or pair[2]
+        plan.edits[#plan.edits + 1] = {first = attr.first, last = attr.last,
+            value = (string.format('%.6f', value):gsub(',', '.'))}
+    end
+end
+
+function M.parse_positions(text)
+    check(type(text) == 'string' and #text <= 16 * 1024 * 1024, 'Positions file too large')
+    text = text:gsub('^\239\187\191', ''):gsub('\r\n', '\n')
+    local placements, header = {}, true
+    for line in (text .. '\n'):gmatch('(.-)\n') do
+        if header then
+            check(line == 'fix_id\tx\ty\trotation_delta', 'Expected normalized positions TSV header')
+            header = false
+        elseif line ~= '' then
+            local fid, x, y, angle = line:match('^([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)$')
+            check(fid, 'Expected exactly four TSV fields')
+            placements[#placements + 1] = {fix_id = M.id(fid), x = M.number(x, 'x'),
+                y = M.number(y, 'y'), rotation_delta = M.number(angle, 'rotation_delta')}
+        end
+    end
+    check(#placements > 0, 'Empty positions file')
+    return {placements = placements}
+end
+
+-- Venue placement: each fixture keeps its own pixel geometry and numbering.
+-- Rotation is a DELTA in the Layout plane, never an inferred 3D Euler angle.
+function M.place(model, config)
+    check(type(config.placements) == 'table' and #config.placements > 0, 'Nonempty placements required')
+    local plan = {changes = {}, edits = {}, source_text = model.text}
+    local seen = {}
+    for _, placement in ipairs(config.placements) do
+        local fid = M.id(placement.fix_id)
+        check(not seen[fid], 'Repeated placement fixture: ' .. fid)
+        seen[fid] = true
+        local elements = select_elements(model, fid, placement.indices or M.indices(model, fid))
+        local source = frame(elements, {angle = 0})
+        local target = {x = M.number(placement.x, 'placement x'), y = M.number(placement.y, 'placement y'),
+            angle = M.number(placement.rotation_delta or 0, 'rotation delta'), mirror = 'none'}
+        local transform = M.compile_transform(source, target)
+        for _, before in ipairs(elements) do
+            local x, y = transform(before.x, before.y)
+            add_change(plan, before, before.index, x, y)
+        end
+    end
+    plan.output = xml.patch(model.text, plan.edits)
+    return plan
+end
+
 -- All jobs read the same immutable snapshot. Conflicting writes are rejected.
 function M.plan(model, config)
+    if type(config) == 'table' and config.placements then
+        check(config.jobs == nil, 'Use jobs OR placements per plan')
+        return M.place(model, config)
+    end
     check(type(config) == 'table' and type(config.jobs) == 'table' and #config.jobs > 0, 'Nonempty jobs required')
     local plan = {changes = {}, edits = {}, source_text = model.text}
     local used, sources = {}, {}
@@ -120,20 +188,13 @@ function M.plan(model, config)
             check(#indices == #selected, 'Source/target index count mismatch')
             local mapped = select_elements(model, fid, indices)
             local destination = frame(mapped, target)
+            local transform = M.compile_transform(origin, destination)
             for i, before in ipairs(mapped) do
                 local key = fid .. '/' .. before.index
                 check(not used[key], 'Conflicting target: ' .. key)
                 used[key] = true
-                local x, y = M.transform(selected[i].x, selected[i].y, origin, destination)
-                x, y = M.number(x, 'result x'), M.number(y, 'result y')
-                local change = {fix_id = fid, index = before.index, source_index = selected[i].index,
-                    before_x = before.x, before_y = before.y, x = x, y = y}
-                plan.changes[#plan.changes + 1] = change
-                for _, pair in ipairs({{'center_x', x}, {'center_y', y}}) do
-                    local attr = before.node.attrs[pair[1]]
-                    local value = math.abs(pair[2]) < 0.0000005 and 0 or pair[2]
-                    plan.edits[#plan.edits + 1] = {first = attr.first, last = attr.last, value = string.format('%.6f', value)}
-                end
+                local x, y = transform(selected[i].x, selected[i].y)
+                add_change(plan, before, selected[i].index, x, y)
             end
         end
     end
@@ -142,7 +203,7 @@ function M.plan(model, config)
 end
 
 function M.report(plan)
-    local lines = {'Layout Assistant 0.1.0 - PREVIEW',
+    local lines = {'Layout Assistant 0.2.0 - PREVIEW',
         'Only center_x/center_y change in a NEW Layout copy. Icons/sizes/patch stay as exported.',
         'Fixture/raw_index <- source_raw_index: old x,y -> new x,y'}
     for _, c in ipairs(plan.changes) do

@@ -12,9 +12,9 @@ local function list(text, convert)
 end
 function M.run(g, filesystem)
     local a = ma2.new(g, filesystem)
-    local mode = a.ask('Layout Assistant: probe / preview / create', 'probe')
+    local mode = a.ask('Layout Assistant: probe / preview / create / scene', 'probe')
     if mode == '' then return end
-    if mode ~= 'probe' and mode ~= 'preview' and mode ~= 'create' then error('Unknown mode', 0) end
+    if mode ~= 'probe' and mode ~= 'preview' and mode ~= 'create' and mode ~= 'scene' then error('Unknown mode', 0) end
     local layout = core.id(a.ask('Existing Layout number', ''))
     if mode == 'probe' then
         a.probe('Layout ' .. layout)
@@ -23,9 +23,16 @@ function M.run(g, filesystem)
         return
     end
     local dir = a.directory(a.ask('Absolute existing importexport directory (see manual)', ''))
-    local text, snapshot = a.export(layout, dir)
-    local model = core.read(text)
+    local text, snapshot, model = a.export(layout, dir)
     a.log('Snapshot kept: ' .. snapshot)
+    local plan
+    if mode == 'scene' then
+        local filename = a.ask('Positions TSV filename in importexport, e.g. scene_front.tsv', '')
+        if not filename:match('^[%w_-]+%.tsv$') then error('Use a simple .tsv filename, no path', 0) end
+        plan = core.plan(model, core.parse_positions(a.read(dir .. '/' .. filename)))
+        mode = a.ask('Scene: preview / create', 'preview')
+        if mode ~= 'preview' and mode ~= 'create' then error('Cancelled', 0) end
+    else
     local fid = core.id(a.ask('Template Fixture ID', ''))
     local available = table.concat(core.indices(model, fid), ',')
     a.log('Template RAW XML indices: ' .. available .. '. These are not guaranteed to equal displayed .n numbers.')
@@ -48,7 +55,8 @@ function M.run(g, filesystem)
         end
         targets[#targets + 1] = target
     end
-    local plan = core.plan(model, {jobs = {{source = source, targets = targets}}})
+    plan = core.plan(model, {jobs = {{source = source, targets = targets}}})
+    end
     local report = core.report(plan)
     for line in report:gmatch('[^\n]+') do a.log(line) end
     local name = a.basename(dir, 'result')
