@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+out/
+*.show.gz
+*.show
+la_snapshot_*
+la_result_*

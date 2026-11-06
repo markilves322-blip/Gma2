@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SYNTHETIC TEST DATA, not an export captured from onPC. Raw indices are illustrative. -->
+<MA xmlns="http://schemas.malighting.de/grandma2/xml/MA" major_vers="3" minor_vers="9" stream_vers="60">
+  <Info datetime="2026-11-06T00:00:00" showfile="Layout Assistant synthetic test" />
+  <Group index="0" name="Synthetic test">
+    <Subfixtures>
+      <Subfixture fix_id="101" sub_index="0"/><Subfixture fix_id="101" sub_index="1"/><Subfixture fix_id="101" sub_index="2"/>
+      <Subfixture fix_id="201" sub_index="0"/><Subfixture fix_id="201" sub_index="1"/><Subfixture fix_id="201" sub_index="2"/>
+      <Subfixture fix_id="202" sub_index="0"/><Subfixture fix_id="202" sub_index="1"/><Subfixture fix_id="202" sub_index="2"/>
+      <Subfixture fix_id="301" sub_index="0"/><Subfixture fix_id="301" sub_index="1"/><Subfixture fix_id="301" sub_index="2"/><Subfixture fix_id="301" sub_index="3"/>
+      <Subfixture fix_id="401" sub_index="0"/><Subfixture fix_id="401" sub_index="1"/><Subfixture fix_id="401" sub_index="2"/><Subfixture fix_id="401" sub_index="3"/>
+    </Subfixtures>
+    <LayoutData index="0" marker_visible="true" background_color="000000" snap_grid_h="0.5" snap_grid_w="0.5">
+      <SubFixtures>
+        <LayoutSubFix center_x="9.133975" center_y="9.5" size_w="0.4" size_h="0.4" icon="None"><image/><Subfixture fix_id="101" sub_index="0"/></LayoutSubFix>
+        <LayoutSubFix center_x="10" center_y="10" size_w="0.4" size_h="0.4" icon="None"><image/><Subfixture fix_id="101" sub_index="1"/></LayoutSubFix>
+        <LayoutSubFix center_x="10.866025" center_y="10.5" size_w="0.4" size_h="0.4" icon="None"><image/><Subfixture fix_id="101" sub_index="2"/></LayoutSubFix>
+        <LayoutSubFix center_x="19" center_y="10" size_w="0.4" size_h="0.4"><Subfixture fix_id="201" sub_index="0"/></LayoutSubFix>
+        <LayoutSubFix center_x="20" center_y="10" size_w="0.4" size_h="0.4"><Subfixture fix_id="201" sub_index="1"/></LayoutSubFix>
+        <LayoutSubFix center_x="21" center_y="10" size_w="0.4" size_h="0.4"><Subfixture fix_id="201" sub_index="2"/></LayoutSubFix>
+        <LayoutSubFix center_x="29" center_y="10" size_w="0.4" size_h="0.4"><Subfixture fix_id="202" sub_index="0"/></LayoutSubFix>
+        <LayoutSubFix center_x="30" center_y="10" size_w="0.4" size_h="0.4"><Subfixture fix_id="202" sub_index="1"/></LayoutSubFix>
+        <LayoutSubFix center_x="31" center_y="10" size_w="0.4" size_h="0.4"><Subfixture fix_id="202" sub_index="2"/></LayoutSubFix>
+        <LayoutSubFix center_x="9.5" center_y="4.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="301" sub_index="0"/></LayoutSubFix>
+        <LayoutSubFix center_x="10.5" center_y="4.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="301" sub_index="1"/></LayoutSubFix>
+        <LayoutSubFix center_x="9.5" center_y="5.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="301" sub_index="2"/></LayoutSubFix>
+        <LayoutSubFix center_x="10.5" center_y="5.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="301" sub_index="3"/></LayoutSubFix>
+        <LayoutSubFix center_x="24.5" center_y="4.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="401" sub_index="0"/></LayoutSubFix>
+        <LayoutSubFix center_x="25.5" center_y="4.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="401" sub_index="1"/></LayoutSubFix>
+        <LayoutSubFix center_x="24.5" center_y="5.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="401" sub_index="2"/></LayoutSubFix>
+        <LayoutSubFix center_x="25.5" center_y="5.5" size_w="0.4" size_h="0.4"><Subfixture fix_id="401" sub_index="3"/></LayoutSubFix>
+      </SubFixtures>
+      <!-- Unknown visual content is intentionally preserved byte for byte. -->
+      <Texts><LayoutText center_x="10" center_y="15" text="Keep &amp; preserve &quot;this&quot;" /></Texts>
+    </LayoutData>
+  </Group>
+</MA>
